@@ -1,0 +1,33 @@
+{
+  "name": "surtr-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.3.1",
+    "@fortawesome/free-solid-svg-icons": "^7.3.1",
+    "@fortawesome/vue-fontawesome": "^3.3.3",
+    "@tanstack/vue-table": "^9.3.1",
+    "@tanstack/vue-virtual": "^3.13.46",
+    "@turf/area": "^7.4.0",
+    "@turf/length": "^7.4.0",
+    "maplibre-gl": "^6.14.0",
+    "pmtiles": "^4.5.0",
+    "vue": "^3.5.44",
+    "vue-slider-component": "^4.1.0-beta.7"
+  },
+  "devDependencies": {
+    "@maplibre/maplibre-gl-style-spec": "^26.4.4",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
+  }
+}

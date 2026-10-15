@@ -1,0 +1,38 @@
+/* Global styles. Component styles live in each .vue file. */
+
+/* Variables */
+:root {
+  --padding-size: .33rem;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+
+    font-family: Frutiger, "Frutiger Linotype", Univers, Calibri, "Gill Sans", "Gill Sans MT", "Myriad Pro", Myriad, "DejaVu Sans Condensed", "Liberation Sans", "Nimbus Sans L", Tahoma, Geneva, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* Sidebar on the left, map takes the rest */
+#app {
+    display: flex;
+}
+
+/* Round icon-only buttons (About, Settings, dialog close) */
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: #444;
+    font-size: 1.1em;
+    cursor: pointer;
+}
+
+.icon-button:hover {
+    background: rgba(0, 0, 0, .08);
+}

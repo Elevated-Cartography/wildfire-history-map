@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "surtr"
+version = "0.1.0"
+authors = [
+    {name = "Paul Wicks", email = "pwicks86@gmail.com"},
+]
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Private :: Do not Upload",
+]
+dependencies = [
+    # downloading stuff
+    "httpx",
+    # Show nice progress bars
+    "tqdm",
+    # Open geospatial files (reference/checker.py)
+    "fiona",
+    # Unit conversion
+    "pint",
+    # area computation and other stuff
+    "shapely>=2",
+    "pyproj",
+]
+
+[project.scripts]
+surtr = "surtr.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

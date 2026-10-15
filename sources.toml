@@ -1,0 +1,143 @@
+# Data sources for the fire map.
+#
+# Every source is an ArcGIS FeatureServer layer. `surtr fetch` pulls each one
+# into data/raw/<name>.geojsonl, but only when the layer has been edited since
+# the last fetch, so it's cheap to run often.
+#
+# Perimeter sources are processed in the order listed here. When the same fire
+# shows up in more than one source (matched by IRWIN ID, or by year + name +
+# overlapping extent) the first one wins, so put the best-attributed data first.
+#
+# [sources.fields] maps our output property names to the layer's field names.
+# Supported outputs: year, agency, fire_name, comments, cause, alarm_date,
+# cont_date. If `year` isn't mapped it's derived from alarm_date.
+#
+# [sources.cause] resolves a cause code using the NIFC rules engine (see
+# reason.py), either from fields on the layer itself or by looking up the
+# fire's IRWIN ID in one of the [[lookups]] tables. It's only used when the
+# directly mapped `cause` field is empty or "Unknown".
+#
+# A field can also be a list of fields: the first one with a value is used.
+# `values` in [sources.cause] translates text in the `cause` field to cause
+# codes (ReasonCode in reason.py), for sources with their own cause names.
+#
+# [sources.prescribed] marks features as prescribed burns rather than
+# wildfires when `field` has one of `values`. Everything else is a wildfire.
+
+# States/provinces, used to tag each fire with the places it burned in (and
+# so their countries). Downloaded once by `surtr fetch-boundaries`.
+[boundaries]
+url = "https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces.zip"
+
+# CAL FIRE FRAP historical perimeters. The most complete record for California,
+# updated each spring with the previous fire season.
+[[sources]]
+name = "calfire"
+title = "CAL FIRE FRAP California Fire Perimeters"
+homepage = "https://www.fire.ca.gov/what-we-do/fire-resource-assessment-program/fire-perimeters"
+url = "https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services/California_Historic_Fire_Perimeters/FeatureServer/0"
+size_field = "GIS_ACRES"
+size_unit = "acre"
+irwinid_field = "IRWINID"
+
+[sources.fields]
+year = "YEAR_"
+agency = "AGENCY"
+fire_name = "FIRE_NAME"
+comments = "COMMENTS"
+cause = "CAUSE"
+alarm_date = "ALARM_DATE"
+cont_date = "CONT_DATE"
+
+[sources.cause]
+lookup = "wfigs-incidents"
+
+# NIFC Interagency Fire Perimeter History, all years. National coverage, but
+# only updated once a year and has no cause information of its own.
+[[sources]]
+name = "nifc-history"
+title = "NIFC InterAgency Fire Perimeter History (All Years)"
+homepage = "https://data-nifc.opendata.arcgis.com/datasets/nifc::interagencyfireperimeterhistory-all-years-view"
+url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/InterAgencyFirePerimeterHistory_All_Years_View/FeatureServer/0"
+size_field = "GIS_ACRES"
+size_unit = "acre"
+irwinid_field = "IRWINID"
+
+[sources.fields]
+year = "FIRE_YEAR"
+agency = "AGENCY"
+fire_name = "INCIDENT"
+comments = "COMMENTS"
+
+[sources.cause]
+lookup = "wfigs-incidents"
+
+[sources.prescribed]
+field = "FEATURE_CA"
+values = ["Prescribed Fire"]
+
+# WFIGS Interagency Fire Perimeters: 2016 to today, including this season's
+# active fires. This is what keeps the map current between the yearly releases
+# above. Only wildfires (WF) and prescribed burns (RX), not other incident types.
+[[sources]]
+name = "wfigs-perimeters"
+title = "WFIGS Interagency Fire Perimeters"
+homepage = "https://data-nifc.opendata.arcgis.com/datasets/nifc::wfigs-interagency-fire-perimeters"
+url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters/FeatureServer/0"
+where = "attr_IncidentTypeCategory IN ('WF', 'RX')"
+size_field = "poly_GISAcres"
+size_unit = "acre"
+irwinid_field = "poly_IRWINID"
+
+[sources.fields]
+agency = "attr_POOProtectingAgency"
+fire_name = "poly_IncidentName"
+alarm_date = "attr_FireDiscoveryDateTime"
+cont_date = "attr_ContainmentDateTime"
+
+[sources.cause]
+fields = ["attr_FireCause", "attr_FireCauseGeneral", "attr_FireCauseSpecific"]
+
+[sources.prescribed]
+field = "attr_IncidentTypeCategory"
+values = ["RX"]
+
+# Canada's National Burned Area Composite (NBAC), 1972 to last season, mostly
+# mapped from satellite imagery. Read from Esri Canada's copy, which serves it
+# from ArcGIS like the US sources (the official download is a shapefile).
+# There are no fire names, and the end date is when a fire was declared out
+# rather than contained, so it's left out of burn time.
+[[sources]]
+name = "nbac"
+title = "Canada National Burned Area Composite (NBAC)"
+homepage = "https://cwfis.cfs.nrcan.gc.ca/ha/nfdb?type=nbac"
+url = "https://services.arcgis.com/wjcPoefzjpzCgffS/arcgis/rest/services/Historical_Wildfire_Perimeters_in_Canada/FeatureServer/0"
+size_field = "ADJ_HA"
+size_unit = "hectare"
+
+[sources.fields]
+year = "YEAR"
+# Province/territory, or PC for Parks Canada
+agency = "ADMIN_NAME"
+cause = "FIRECAUS"
+# Agency start date, else the first satellite hotspot
+alarm_date = ["AG_SDATE", "HS_SDATE"]
+
+[sources.cause]
+values = { Natural = 1, Human = 27, Undetermined = 14 }
+
+[sources.prescribed]
+field = "PRESCRIBED"
+values = ["true"]
+
+# Lookup tables: attribute-only layers joined onto perimeters by IRWIN ID.
+
+# WFIGS incident points: one row per incident (~430k), with cause fields.
+[[lookups]]
+name = "wfigs-incidents"
+title = "WFIGS Wildland Fire Incident Locations"
+homepage = "https://data-nifc.opendata.arcgis.com/datasets/nifc::wildland-fire-incident-locations"
+url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Incident_Locations/FeatureServer/0"
+where = "FireCause IS NOT NULL"
+key_field = "IrwinID"
+fields = ["FireCause", "FireCauseGeneral", "FireCauseSpecific"]

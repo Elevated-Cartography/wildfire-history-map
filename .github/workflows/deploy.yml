@@ -1,0 +1,62 @@
+name: Deploy site
+
+# Builds the site with the map data the "Update data" workflow (data.yml) last
+# published, and deploys it to GitHub Pages. Enable Pages under Settings ->
+# Pages -> Source: GitHub Actions, and run "Update data" once before the first
+# deploy.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # New data's been published
+  workflow_run:
+    workflows: ["Update data"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # After "Update data", only if it worked
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build site
+        run: make site DATA_FROM=release DATA_REPO=${{ github.repository }}
+        env:
+          # Downloading release files from a private repo needs it
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Test
+        run: make test
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,6 @@
+* Handle all pre-1900 stuff as a single tick
+* clean up styling
+    * Better fonts
+* figure out deployment (maybe automate that too? github action?)
+* Flaming borders on selected fire? (secret option maybe?)
+* little icons for reasons?

@@ -1,0 +1,103 @@
+name: Update data
+
+# Fetches the fire data, builds the map tiles and publishes them as the `data`
+# release, which the site deploy (deploy.yml) downloads. Kept apart from the
+# deploy so code changes go out in minutes, without rebuilding the data, and
+# so the data never goes into git history.
+on:
+  schedule:
+    # Weekly on Mondays. CAL FIRE, NIFC history and NBAC only update once a
+    # year, but WFIGS changes daily during fire season, so run this more often
+    # in summer if you want the current season to stay fresh.
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  # To update the release
+  contents: write
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Canada's data is ~2.7 GB raw and processing about doubles everything,
+      # which gets close to the runner's free disk. These preinstalled
+      # toolchains aren't used here and take up ~30 GB.
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      # The Makefile builds tippecanoe into .tools/ if it's missing. The
+      # version is pinned in the Makefile, so key the cache on that.
+      - name: Cache tools
+        id: tools-cache
+        uses: actions/cache@v4
+        with:
+          path: .tools
+          key: tools-${{ runner.os }}-${{ hashFiles('Makefile') }}
+          restore-keys: tools-${{ runner.os }}-
+
+      - name: Install tippecanoe build dependencies
+        if: steps.tools-cache.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev zlib1g-dev
+
+      # Restore the previous run's downloads so `surtr fetch` can skip sources
+      # that haven't changed. Each run saves a fresh copy under a new key.
+      - name: Cache raw data
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/raw
+            data/reference
+          key: raw-data-${{ github.run_id }}
+          restore-keys: raw-data-
+
+      - name: Test the pipeline
+        run: uv run pytest -q tests
+
+      - name: Build
+        run: make tiles
+
+      # The new build's files go up before meta.json, which points at them, so
+      # anyone downloading in the meantime gets a complete set, old or new.
+      # File names include the build version, so they never clash.
+      - name: Publish to the data release
+        working-directory: web/public/data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view data > /dev/null 2>&1; then
+            gh release create data --title "Map data" --notes "Published by the Update data workflow." --latest=false
+          fi
+          gh release upload data fire-*.pmtiles fires-*.json --clobber
+          gh release upload data meta.json --clobber
+          # Then drop the previous build's files
+          gh release view data --json assets --jq '.assets[].name' | while read -r asset; do
+            if [ ! -e "$asset" ]; then
+              gh release delete-asset data "$asset" --yes
+            fi
+          done
+          gh release edit data --notes "$(jq -r '"Built \(.generated_at): \([.sources[].kept] | add) fires in \(.tiles | length) tiles files. Published by the Update data workflow."' meta.json)"
+
+      - name: Summarize
+        working-directory: web/public/data
+        run: |
+          {
+            echo "## Data sources"
+            echo '```json'
+            jq '.sources' meta.json
+            echo '```'
+            echo "## Tiles"
+            echo '```'
+            ls -l ./*.pmtiles | awk '{printf "%s %.0f MB\n", $9, $5 / 1e6}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
