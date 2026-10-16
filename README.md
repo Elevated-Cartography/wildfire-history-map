@@ -1,4 +1,4 @@
-# surtr
+# Wildire History Map
 
 An interactive map of historical wildfire perimeters in the US and Canada, built as a static site
 (Vue + MapLibre + PMTiles, on an [OpenFreeMap](https://openfreemap.org/)
